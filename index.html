@@ -3,19 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conta Fiada Digital</title>
+    <title>Conta Fiada Digital - v8 Pro</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     
     <style>
-        body { background-color: #f4f6f9; }
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .card-summary { border: none; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .btn-custom { border-radius: 10px; padding: 10px 20px; font-weight: bold; }
-        .text-debt { color: #dc3545; font-weight: bold; } /* Vermelho para dívida */
-        .text-credit { color: #198754; font-weight: bold; } /* Verde para crédito */
-        .nav-pills .nav-link.active { background-color: #0d6efd; }
-        .product-card { cursor: pointer; transition: 0.2s; }
-        .product-card:hover { transform: translateY(-3px); border-color: #0d6efd; }
+        .text-debt { color: #dc3545; font-weight: bold; }
+        .text-credit { color: #198754; font-weight: bold; }
+        .product-card { cursor: pointer; transition: 0.2s; border: 1px solid #ddd; height: 100%; background: white; }
+        .product-card:hover { transform: translateY(-3px); border-color: #0d6efd; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        #reader, #readerCart { width: 100%; border-radius: 10px; overflow: hidden; display: none; margin-bottom: 10px; }
+        .pix-preview { max-width: 180px; border-radius: 10px; border: 2px dashed #ccc; padding: 10px; margin: 0 auto; }
+        #pixDisplayImg { max-width: 100%; display: none; }
+        .hist-item { border-left: 4px solid #dee2e6; margin-bottom: 10px; padding-left: 10px; }
+        .hist-buy { border-left-color: #dc3545; }
+        .hist-pay { border-left-color: #198754; }
+        .search-select-box { position: relative; }
     </style>
 </head>
 <body>
@@ -26,68 +33,61 @@
         <button onclick="resetSystem()" class="btn btn-sm btn-outline-danger">Zerar Sistema</button>
     </div>
 
-    <ul class="nav nav-pills mb-4 justify-content-center" id="pills-tab" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="pills-venda-tab" data-bs-toggle="pill" data-bs-target="#pills-venda" type="button">🛒 Nova Venda</button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="pills-clientes-tab" data-bs-toggle="pill" data-bs-target="#pills-clientes" type="button">👥 Clientes / Fiado</button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" id="pills-estoque-tab" data-bs-toggle="pill" data-bs-target="#pills-estoque" type="button">📦 Estoque</button>
-        </li>
+    <ul class="nav nav-pills mb-4 justify-content-center" id="pills-tab">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pills-venda">🛒 Venda</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pills-clientes">👥 Clientes</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pills-estoque">📦 Estoque</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pills-config">⚙️ Conta/Pix</button></li>
     </ul>
 
-    <div class="tab-content" id="pills-tabContent">
+    <div class="tab-content">
         
         <div class="tab-pane fade show active" id="pills-venda">
             <div class="row">
                 <div class="col-md-7 mb-3">
                     <div class="card card-summary p-3">
-                        <h5>Selecione os Produtos</h5>
-                        <input type="text" id="searchProduct" class="form-control mb-3" placeholder="Buscar produto..." onkeyup="renderPOSProducts()">
-                        <div class="row g-2" id="posProductList">
-                            </div>
+                        <input type="text" id="searchProduct" class="form-control mb-3" placeholder="🔍 Buscar produto..." onkeyup="renderPOSProducts()">
+                        <div class="row g-2" id="posProductList"></div>
                     </div>
                 </div>
-
                 <div class="col-md-5">
                     <div class="card card-summary p-3 bg-white">
-                        <h5 class="d-flex justify-content-between">
-                            Carrinho <span class="badge bg-primary" id="cartCount">0</span>
-                        </h5>
-                        <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
-                            <table class="table table-sm">
-                                <tbody id="cartTableBody">
-                                    </tbody>
-                            </table>
-                        </div>
+                        <h5 class="d-flex justify-content-between">Carrinho <span class="badge bg-primary" id="cartCount">0</span></h5>
+                        <div class="table-responsive" style="max-height: 200px;"><table class="table table-sm"><tbody id="cartTableBody"></tbody></table></div>
                         <hr>
                         <div class="d-flex justify-content-between fs-4 fw-bold">
-                            <span>Total:</span>
-                            <span id="cartTotal">R$ 0,00</span>
+                            <span>Total:</span> <span id="cartTotalDisplay">R$ 0,00</span>
                         </div>
+                        <div id="feeAlert" class="text-danger small mb-2" style="display:none;"></div>
                         
                         <div class="mt-3">
-                            <label class="form-label">Cliente</label>
-                            <select class="form-select mb-2" id="saleCustomer">
-                                </select>
-                            
-                            <label class="form-label">Forma de Pagamento</label>
-                            <select class="form-select mb-3" id="paymentMethod" onchange="toggleCashInput()">
-                                <option value="Dinheiro">Dinheiro</option>
-                                <option value="Pix">Pix</option>
-                                <option value="Cartão">Cartão</option>
-                                <option value="Fiado">Fiado (Pagar Depois)</option>
-                            </select>
-
-                            <div id="cashInputDiv" class="mb-3">
-                                <label>Valor Recebido (R$)</label>
-                                <input type="number" class="form-control" id="cashReceived" placeholder="0.00">
-                                <small class="text-muted">Se sobrar troco e não devolver, vira crédito.</small>
+                            <label class="form-label small fw-bold">Selecionar Cliente</label>
+                            <div id="readerCart"></div>
+                            <div class="input-group mb-2">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" id="customerSearchInput" class="form-control" placeholder="Pesquisar nome..." onkeyup="filterCartCustomers()">
+                                <button class="btn btn-outline-dark" onclick="startScanner('cart')" title="Cadastrar novo via QR"><i class="bi bi-qr-code-scan"></i></button>
+                            </div>
+                            <div class="search-select-box">
+                                <select class="form-select mb-2" id="saleCustomer" onchange="syncSearchInput()"></select>
                             </div>
 
-                            <button onclick="finalizeSale()" class="btn btn-success w-100 btn-custom">Finalizar Venda</button>
+                            <label class="form-label small fw-bold">Pagamento</label>
+                            <select class="form-select mb-3" id="paymentMethod" onchange="updateTotalWithFees()">
+                                <option value="Dinheiro">Dinheiro</option>
+                                <option value="Pix">Pix</option>
+                                <option value="Cartão">Cartão (Crédito/Débito)</option>
+                                <option value="Fiado">Fiado (Na Conta)</option>
+                            </select>
+                            
+                            <button id="btnShowPix" class="btn btn-info w-100 mb-2" style="display:none;" data-bs-toggle="modal" data-bs-target="#pixModal">
+                                <i class="bi bi-qr-code"></i> Abrir QR Code Pix
+                            </button>
+
+                            <div id="cashInputDiv" class="mb-3" style="display:none;">
+                                <input type="number" class="form-control" id="cashReceived" placeholder="Valor Recebido (R$)">
+                            </div>
+                            <button onclick="finalizeSale()" class="btn btn-success w-100 btn-lg fw-bold">Finalizar Venda</button>
                         </div>
                     </div>
                 </div>
@@ -97,30 +97,38 @@
         <div class="tab-pane fade" id="pills-clientes">
             <div class="row">
                 <div class="col-md-4 mb-3">
-                    <div class="card card-summary p-3">
+                    <div class="card card-summary p-3 mb-3">
                         <h5>Novo Cliente</h5>
-                        <input type="text" id="newClientName" class="form-control mb-2" placeholder="Nome do Cliente">
-                        <input type="text" id="newClientPhone" class="form-control mb-2" placeholder="Telefone (Opcional)">
+                        <div id="reader"></div>
+                        <div class="input-group mb-2">
+                            <input type="text" id="newClientName" class="form-control" placeholder="Nome">
+                            <button class="btn btn-outline-dark" onclick="startScanner('manual')"><i class="bi bi-qr-code-scan"></i></button>
+                        </div>
+                        <input type="text" id="newClientPhone" class="form-control mb-2" placeholder="Telefone/WhatsApp">
                         <button onclick="addCustomer()" class="btn btn-primary w-100">Cadastrar</button>
+                    </div>
+                    <div class="card card-summary p-3 bg-light text-center">
+                        <label for="excelInput" class="btn btn-sm btn-outline-success w-100">Importar Clientes (Excel)</label>
+                        <input type="file" id="excelInput" style="display:none" onchange="importCustomers(this)">
                     </div>
                 </div>
                 <div class="col-md-8">
                     <div class="card card-summary p-3">
-                        <h5>Lista de Clientes e Saldos</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Nome</th>
-                                        <th>Telefone</th>
-                                        <th>Saldo (R$)</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="customerTableBody">
-                                    </tbody>
-                            </table>
+                        <div class="input-group mb-3">
+                            <input type="text" id="searchClient" class="form-control" placeholder="Filtrar por nome..." onkeyup="renderCustomers()">
+                            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" id="activeFilterLabel">
+                                <i class="bi bi-funnel"></i> Todos
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#" onclick="setBalanceFilter('all')">Todos</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="setBalanceFilter('negative')"><i class="bi bi-dash-circle text-danger"></i> Devedores</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="setBalanceFilter('positive')"><i class="bi bi-plus-circle text-success"></i> Saldo Positivo</a></li>
+                            </ul>
                         </div>
+                        <div class="table-responsive"><table class="table table-hover">
+                            <thead><tr><th>Nome / Tel</th><th>Saldo</th><th>Ações</th></tr></thead>
+                            <tbody id="customerTableBody"></tbody>
+                        </table></div>
                     </div>
                 </div>
             </div>
@@ -129,365 +137,319 @@
         <div class="tab-pane fade" id="pills-estoque">
             <div class="row">
                 <div class="col-md-4 mb-3">
-                    <div class="card card-summary p-3">
-                        <h5>Cadastrar Produto</h5>
-                        <input type="text" id="prodName" class="form-control mb-2" placeholder="Nome do Produto">
-                        <input type="number" id="prodPrice" class="form-control mb-2" placeholder="Preço (R$)">
-                        <input type="number" id="prodStock" class="form-control mb-2" placeholder="Qtd. Estoque">
-                        <button onclick="addProduct()" class="btn btn-primary w-100">Salvar Produto</button>
+                    <div class="card card-summary p-3 mb-3">
+                        <h5>Novo Produto</h5>
+                        <input type="text" id="prodName" class="form-control mb-2" placeholder="Nome">
+                        <input type="number" id="prodPrice" class="form-control mb-2" placeholder="Preço">
+                        <input type="number" id="prodStock" class="form-control mb-2" placeholder="Estoque">
+                        <button onclick="addProduct()" class="btn btn-primary w-100">Salvar</button>
+                    </div>
+                    <div class="card card-summary p-3 bg-light text-center">
+                        <label for="prodExcelInput" class="btn btn-sm btn-outline-success w-100">Importar Produtos (Excel)</label>
+                        <input type="file" id="prodExcelInput" style="display:none" onchange="importProducts(this)">
                     </div>
                 </div>
                 <div class="col-md-8">
                     <div class="card card-summary p-3">
-                        <h5>Estoque Atual</h5>
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Produto</th>
-                                    <th>Preço</th>
-                                    <th>Qtd.</th>
-                                    <th>Ação</th>
-                                </tr>
-                            </thead>
-                            <tbody id="inventoryTableBody">
-                                </tbody>
-                        </table>
+                        <div class="table-responsive"><table class="table align-middle">
+                            <thead><tr><th>Item</th><th>Preço</th><th>Estoque</th><th class="text-end">Ações</th></tr></thead>
+                            <tbody id="inventoryTableBody"></tbody>
+                        </table></div>
                     </div>
                 </div>
             </div>
         </div>
 
-    </div>
-</div>
-
-<div class="modal fade" id="historyModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Histórico de Movimentações</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <ul class="list-group" id="historyList"></ul>
+        <div class="tab-pane fade" id="pills-config">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <div class="card card-summary p-3">
+                        <h5>Taxa do Cartão (%)</h5>
+                        <div class="input-group mb-3">
+                            <input type="number" id="cardFee" class="form-control" placeholder="Ex: 2.5">
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <button onclick="saveConfigs()" class="btn btn-primary">Salvar Taxa</button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card card-summary p-3 text-center">
+                        <h5>Imagem QR Code Pix</h5>
+                        <input type="file" id="pixUpload" class="form-control mb-3" accept="image/*" onchange="previewPix(this)">
+                        <div class="pix-preview">
+                            <img id="pixDisplayImg" src="" alt="Pix">
+                            <p id="pixPlaceholder" class="text-muted small m-0">Sem imagem</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
+<div class="modal fade" id="historyModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-light"><h5>Extrato Detalhado</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="historyList"></div></div></div></div></div>
+<div class="modal fade" id="pixModal" tabindex="-1"><div class="modal-dialog modal-sm modal-dialog-centered"><div class="modal-content text-center p-4"><h5>Pagamento Pix</h5><img id="pixModalImg" src="" class="img-fluid my-3 rounded"><button class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button></div></div></div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // --- DADOS INICIAIS (Banco de dados simulado) ---
     let products = JSON.parse(localStorage.getItem('cf_products')) || [];
     let customers = JSON.parse(localStorage.getItem('cf_customers')) || [];
-    let transactions = JSON.parse(localStorage.getItem('cf_transactions')) || [];
+    let config = JSON.parse(localStorage.getItem('cf_config')) || { cardFee: 0, pixImg: '' };
     let cart = [];
+    let balanceFilter = 'all'; // 'all', 'negative', 'positive'
 
-    // --- FUNÇÕES DE INICIALIZAÇÃO ---
     function init() {
-        renderProducts();
-        renderCustomers();
-        renderPOSProducts();
-        updateCustomerSelect();
+        document.getElementById('cardFee').value = config.cardFee;
+        if(config.pixImg) {
+            document.getElementById('pixDisplayImg').src = config.pixImg;
+            document.getElementById('pixDisplayImg').style.display = 'block';
+            document.getElementById('pixModalImg').src = config.pixImg;
+            document.getElementById('pixPlaceholder').style.display = 'none';
+        }
+        renderProducts(); renderCustomers(); renderPOSProducts(); updateCustomerSelect();
     }
 
     function saveData() {
         localStorage.setItem('cf_products', JSON.stringify(products));
         localStorage.setItem('cf_customers', JSON.stringify(customers));
-        localStorage.setItem('cf_transactions', JSON.stringify(transactions));
+        localStorage.setItem('cf_config', JSON.stringify(config));
     }
 
-    // --- GESTÃO DE ESTOQUE ---
-    function addProduct() {
-        const name = document.getElementById('prodName').value;
-        const price = parseFloat(document.getElementById('prodPrice').value);
-        const stock = parseInt(document.getElementById('prodStock').value);
-
-        if (!name || isNaN(price) || isNaN(stock)) return alert("Preencha todos os campos corretamente.");
-
-        const newProd = { id: Date.now(), name, price, stock };
-        products.push(newProd);
-        saveData();
-        renderProducts();
-        renderPOSProducts();
-        
-        // Limpar campos
-        document.getElementById('prodName').value = '';
-        document.getElementById('prodPrice').value = '';
-        document.getElementById('prodStock').value = '';
-    }
-
-    function renderProducts() {
-        const tbody = document.getElementById('inventoryTableBody');
-        tbody.innerHTML = '';
-        products.forEach((p, index) => {
-            tbody.innerHTML += `
-                <tr>
-                    <td>${p.name}</td>
-                    <td>R$ ${p.price.toFixed(2)}</td>
-                    <td>
-                        <span class="badge ${p.stock < 5 ? 'bg-danger' : 'bg-success'}">${p.stock}</span>
-                    </td>
-                    <td><button class="btn btn-sm btn-outline-danger" onclick="deleteProduct(${index})"><i class="bi bi-trash"></i></button></td>
-                </tr>
-            `;
-        });
-    }
-
-    function deleteProduct(index) {
-        if(confirm('Tem certeza?')) {
-            products.splice(index, 1);
-            saveData();
-            renderProducts();
-            renderPOSProducts();
-        }
-    }
-
-    // --- GESTÃO DE CLIENTES ---
-    function addCustomer() {
-        const name = document.getElementById('newClientName').value;
-        const phone = document.getElementById('newClientPhone').value;
-
-        if (!name) return alert("Nome é obrigatório.");
-
-        // Balance: Negativo = Deve, Positivo = Crédito
-        const newClient = { id: Date.now(), name, phone, balance: 0.0, history: [] };
-        customers.push(newClient);
-        saveData();
+    // --- FILTROS DE CLIENTE ---
+    function setBalanceFilter(type) {
+        balanceFilter = type;
+        const labels = { 'all': '<i class="bi bi-funnel"></i> Todos', 'negative': '<i class="bi bi-dash-circle text-danger"></i> Devedores', 'positive': '<i class="bi bi-plus-circle text-success"></i> Positivos' };
+        document.getElementById('activeFilterLabel').innerHTML = labels[type];
         renderCustomers();
-        updateCustomerSelect();
-        
-        document.getElementById('newClientName').value = '';
-        document.getElementById('newClientPhone').value = '';
-        alert("Cliente cadastrado!");
     }
 
     function renderCustomers() {
-        const tbody = document.getElementById('customerTableBody');
-        tbody.innerHTML = '';
-        customers.forEach(c => {
-            let balanceClass = c.balance >= 0 ? 'text-credit' : 'text-debt';
-            let balanceText = c.balance >= 0 ? `Crédito: R$ ${c.balance.toFixed(2)}` : `Deve: R$ ${Math.abs(c.balance).toFixed(2)}`;
-            
-            tbody.innerHTML += `
-                <tr>
-                    <td>${c.name}</td>
-                    <td>${c.phone}</td>
-                    <td class="${balanceClass}">${balanceText}</td>
-                    <td>
-                        <button class="btn btn-sm btn-info" onclick="viewHistory(${c.id})"><i class="bi bi-clock-history"></i></button>
-                        <button class="btn btn-sm btn-success" onclick="payDebtPrompt(${c.id})">Pagar</button>
-                    </td>
-                </tr>
-            `;
-        });
+        const search = document.getElementById('searchClient').value.toLowerCase();
+        let filtered = customers.filter(c => c.name.toLowerCase().includes(search));
+
+        if (balanceFilter === 'negative') filtered = filtered.filter(c => c.balance < 0);
+        if (balanceFilter === 'positive') filtered = filtered.filter(c => c.balance > 0);
+
+        document.getElementById('customerTableBody').innerHTML = filtered.map(c => `
+            <tr><td><b>${c.name}</b><br><small class="text-muted">${c.phone || ''}</small></td>
+            <td class="${c.balance>=0?'text-credit':'text-debt'}">R$ ${c.balance.toFixed(2)}</td>
+            <td><button class="btn btn-sm btn-info" onclick="viewHist(${c.id})"><i class="bi bi-clock-history"></i></button>
+            <button class="btn btn-sm btn-success" onclick="payDebt(${c.id})"><i class="bi bi-currency-dollar"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="delCust(${c.id})"><i class="bi bi-trash"></i></button></td></tr>`).join('');
     }
 
-    function updateCustomerSelect() {
+    // --- BUSCA NO CARRINHO ---
+    function filterCartCustomers() {
+        const input = document.getElementById('customerSearchInput').value.toLowerCase();
         const select = document.getElementById('saleCustomer');
-        select.innerHTML = '<option value="">Selecione um cliente...</option>';
-        customers.forEach(c => {
-            select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
-        });
+        const sorted = [...customers].sort((a,b) => a.name.localeCompare(b.name));
+        select.innerHTML = '<option value="">Resultados...</option>' + 
+            sorted.filter(c => c.name.toLowerCase().includes(input)).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        if(select.querySelectorAll('option').length === 2 && input !== "") select.selectedIndex = 1;
     }
 
-    // --- SISTEMA DE VENDAS (POS) ---
+    function syncSearchInput() {
+        const select = document.getElementById('saleCustomer');
+        if(select.value !== "") document.getElementById('customerSearchInput').value = select.options[select.selectedIndex].text;
+    }
+
+    // --- GESTÃO PRODUTOS ---
+    function addProduct() {
+        const name = document.getElementById('prodName').value;
+        const price = parseFloat(document.getElementById('prodPrice').value);
+        const stock = parseInt(document.getElementById('prodStock').value) || 0;
+        if(!name || isNaN(price)) return alert("Dados inválidos");
+        products.push({id: Date.now(), name, price, stock});
+        saveData(); renderProducts(); renderPOSProducts();
+        document.getElementById('prodName').value = ''; document.getElementById('prodPrice').value = ''; document.getElementById('prodStock').value = '';
+    }
+
+    function renderProducts() {
+        document.getElementById('inventoryTableBody').innerHTML = products.map((p, i) => `
+            <tr><td>${p.name}</td><td>R$ ${p.price.toFixed(2)}</td><td><span class="badge ${p.stock < 5 ? 'bg-danger':'bg-secondary'}">${p.stock}</span></td>
+            <td class="text-end"><button class="btn btn-sm btn-warning" onclick="editProd(${i})"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-danger" onclick="delProd(${i})"><i class="bi bi-trash"></i></button></td></tr>`).join('');
+    }
+
+    function editProd(i) {
+        const p = products[i];
+        const n = prompt("Nome:", p.name); const v = prompt("Preço:", p.price); const e = prompt("Estoque:", p.stock);
+        if(n) p.name = n; if(!isNaN(parseFloat(v))) p.price = parseFloat(v); if(!isNaN(parseInt(e))) p.stock = parseInt(e);
+        saveData(); renderProducts(); renderPOSProducts();
+    }
+
+    function delProd(i) { if(confirm("Apagar?")) { products.splice(i, 1); saveData(); renderProducts(); renderPOSProducts(); } }
+
+    // --- GESTÃO CLIENTES ---
+    function addCustomer(fromName = null) {
+        const name = fromName || document.getElementById('newClientName').value;
+        const phone = fromName ? '' : document.getElementById('newClientPhone').value;
+        if(!name) return alert("Nome obrigatório");
+        const newCust = {id: Date.now(), name, phone, balance: 0, history: []};
+        customers.push(newCust);
+        saveData(); renderCustomers(); updateCustomerSelect();
+        document.getElementById('newClientName').value = ''; document.getElementById('newClientPhone').value = '';
+        return newCust;
+    }
+
+    function delCust(id) { if(confirm("Apagar cliente?")) { customers = customers.filter(c => c.id !== id); saveData(); renderCustomers(); updateCustomerSelect(); } }
+
+    // --- VENDA & CARRINHO ---
     function renderPOSProducts() {
-        const search = document.getElementById('searchProduct').value.toLowerCase();
-        const container = document.getElementById('posProductList');
-        container.innerHTML = '';
-
-        products.filter(p => p.name.toLowerCase().includes(search)).forEach(p => {
-            let stockClass = p.stock === 0 ? 'border-danger opacity-50' : 'border-primary';
-            let clickAction = p.stock > 0 ? `addToCart(${p.id})` : "alert('Produto sem estoque!')";
-            
-            container.innerHTML += `
-                <div class="col-6 col-md-4">
-                    <div class="card product-card p-2 text-center ${stockClass}" onclick="${clickAction}">
-                        <div class="fw-bold">${p.name}</div>
-                        <div class="text-success">R$ ${p.price.toFixed(2)}</div>
-                        <small class="text-muted">Est: ${p.stock}</small>
-                    </div>
-                </div>
-            `;
-        });
+        const s = document.getElementById('searchProduct').value.toLowerCase();
+        document.getElementById('posProductList').innerHTML = products.filter(p => p.name.toLowerCase().includes(s)).map(p => `
+            <div class="col-4"><div class="card product-card p-2 text-center" onclick="addCart(${p.id})">
+            <div class="fw-bold small text-truncate">${p.name}</div><div class="text-success small">R$${p.price.toFixed(2)}</div></div></div>`).join('');
     }
 
-    function addToCart(id) {
-        const product = products.find(p => p.id === id);
-        
-        // Verifica se já está no carrinho
-        const existingItem = cart.find(item => item.id === id);
-        if (existingItem) {
-            if (existingItem.qty < product.stock) {
-                existingItem.qty++;
-            } else {
-                alert("Estoque máximo atingido para este item.");
-            }
-        } else {
-            cart.push({ ...product, qty: 1 });
-        }
+    function addCart(id) {
+        const p = products.find(i => i.id === id);
+        if(p.stock <= 0) return alert("Sem estoque!");
+        const item = cart.find(i => i.id === id);
+        if(item) { if(item.qty < p.stock) item.qty++; } else cart.push({...p, qty: 1});
         renderCart();
     }
 
     function renderCart() {
-        const tbody = document.getElementById('cartTableBody');
-        tbody.innerHTML = '';
-        let total = 0;
-
-        cart.forEach((item, index) => {
-            const itemTotal = item.price * item.qty;
-            total += itemTotal;
-            tbody.innerHTML += `
-                <tr>
-                    <td>${item.name}</td>
-                    <td>${item.qty}x</td>
-                    <td>R$ ${itemTotal.toFixed(2)}</td>
-                    <td><i class="bi bi-x-circle text-danger" style="cursor:pointer" onclick="removeFromCart(${index})"></i></td>
-                </tr>
-            `;
-        });
-
-        document.getElementById('cartTotal').innerText = `R$ ${total.toFixed(2)}`;
+        document.getElementById('cartTableBody').innerHTML = cart.map((i, idx) => `
+            <tr><td>${i.name}</td><td>${i.qty}x</td><td>R$${(i.price*i.qty).toFixed(2)}</td>
+            <td class="text-end"><i class="bi bi-dash-circle text-danger" style="cursor:pointer" onclick="remCart(${idx})"></i></td></tr>`).join('');
+        updateTotalWithFees();
         document.getElementById('cartCount').innerText = cart.length;
     }
 
-    function removeFromCart(index) {
-        cart.splice(index, 1);
-        renderCart();
-    }
+    function remCart(i) { cart.splice(i, 1); renderCart(); }
 
-    function toggleCashInput() {
+    function updateTotalWithFees() {
         const method = document.getElementById('paymentMethod').value;
-        const div = document.getElementById('cashInputDiv');
-        // Mostra campo de valor recebido se for Dinheiro
-        if (method === 'Dinheiro') {
-            div.style.display = 'block';
-        } else {
-            div.style.display = 'none';
-        }
+        const totalBase = cart.reduce((a, b) => a + (b.price * b.qty), 0);
+        let totalFinal = totalBase;
+        document.getElementById('btnShowPix').style.display = (method === 'Pix') ? 'block' : 'none';
+        document.getElementById('cashInputDiv').style.display = (method === 'Dinheiro') ? 'block' : 'none';
+        if (method === 'Cartão' && config.cardFee > 0) {
+            const fee = (totalBase * (config.cardFee / 100));
+            totalFinal = totalBase + fee;
+            document.getElementById('feeAlert').style.display = 'block';
+            document.getElementById('feeAlert').innerText = `+ R$ ${fee.toFixed(2)} de taxa (${config.cardFee}%)`;
+        } else { document.getElementById('feeAlert').style.display = 'none'; }
+        document.getElementById('cartTotalDisplay').innerText = `R$ ${totalFinal.toFixed(2)}`;
+        return totalFinal;
     }
 
     function finalizeSale() {
-        if (cart.length === 0) return alert("Carrinho vazio!");
-        const customerId = document.getElementById('saleCustomer').value;
-        if (!customerId) return alert("Selecione um cliente.");
-
+        const finalAmount = updateTotalWithFees();
+        if(!cart.length) return alert("Carrinho vazio");
+        const cid = document.getElementById('saleCustomer').value;
+        if(!cid) return alert("Selecione o cliente");
+        const cust = customers.find(c => c.id == cid);
         const method = document.getElementById('paymentMethod').value;
-        const customer = customers.find(c => c.id == customerId);
-        
-        // Calcular totais
-        const totalSale = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
-        let cashReceived = 0;
-        let change = 0; // Troco ou crédito gerado
-
-        // Lógica de Pagamento
-        if (method === 'Fiado') {
-            // Se for fiado, o valor total é subtraído do saldo do cliente (ficando negativo)
-            customer.balance -= totalSale;
-            customer.history.push({ date: new Date().toLocaleString(), type: 'Compra Fiado', value: -totalSale });
-        } else if (method === 'Dinheiro') {
-            cashReceived = parseFloat(document.getElementById('cashReceived').value) || 0;
-            if (cashReceived < totalSale) return alert("Valor recebido menor que o total!");
-            
-            // Se o valor recebido for maior, a diferença (troco) vira crédito SE não for devolvida.
-            // Aqui assumimos que se o operador digitou, entrou no sistema.
-            // Para simplificar: Pagamento em dinheiro não altera saldo DEVEDOR, a menos que haja troco guardado como crédito.
-            
-            const diff = cashReceived - totalSale;
-            if (diff > 0) {
-                 if(confirm(`Gerar troco de R$ ${diff.toFixed(2)} como crédito para o cliente?`)) {
-                     customer.balance += diff;
-                     customer.history.push({ date: new Date().toLocaleString(), type: 'Troco/Crédito', value: diff });
-                 }
-            }
-            customer.history.push({ date: new Date().toLocaleString(), type: 'Compra Paga (Dinheiro)', value: 0 }); // Venda neutra no saldo
-        } else {
-            // Cartão ou Pix (Considera pago, não muda saldo devedor)
-            customer.history.push({ date: new Date().toLocaleString(), type: `Compra Paga (${method})`, value: 0 });
-        }
-
-        // Atualizar Estoque
-        cart.forEach(cartItem => {
-            const product = products.find(p => p.id === cartItem.id);
-            if (product) {
-                product.stock -= cartItem.qty;
-            }
-        });
-
-        // Limpar e Salvar
-        cart = [];
-        saveData();
-        renderCart();
-        renderProducts(); // Atualiza visual do estoque
-        renderCustomers(); // Atualiza saldo visual
-        renderPOSProducts(); // Atualiza lista de venda
-        
-        // Reset inputs
-        document.getElementById('cashReceived').value = '';
-        
-        alert("Venda realizada com sucesso!");
-    }
-
-    // --- PAGAMENTO DE DÍVIDAS ---
-    function payDebtPrompt(id) {
-        const customer = customers.find(c => c.id === id);
-        if (customer.balance >= 0) return alert("Este cliente não possui dívidas.");
-
-        let amount = prompt(`O cliente deve R$ ${Math.abs(customer.balance).toFixed(2)}. Quanto ele vai pagar?`);
-        if (amount) {
-            amount = parseFloat(amount.replace(',', '.'));
-            if (!isNaN(amount)) {
-                customer.balance += amount; // Pagar dívida aumenta o saldo (de negativo para zero/positivo)
-                customer.history.push({ date: new Date().toLocaleString(), type: 'Abatimento de Dívida', value: amount });
-                saveData();
-                renderCustomers();
-                alert("Pagamento registrado!");
+        const itemsSummary = cart.map(i => `${i.qty}x ${i.name}`).join(', ');
+        cust.history.push({ date: new Date().toLocaleString(), type: 'Compra', items: itemsSummary, method: method, value: -finalAmount });
+        if(method !== 'Fiado') {
+            cust.history.push({ date: new Date().toLocaleString(), type: 'Pagamento Imediato', items: 'Referente à compra', method: method, value: finalAmount });
+        } else { cust.balance -= finalAmount; }
+        if(method === 'Dinheiro') {
+            const received = parseFloat(document.getElementById('cashReceived').value) || 0;
+            const diff = received - finalAmount;
+            if(diff > 0 && confirm(`Troco de R$${diff.toFixed(2)} vira crédito?`)) {
+                cust.balance += diff;
+                cust.history.push({date: new Date().toLocaleString(), type: 'Crédito (Troco)', value: diff, method: 'Dinheiro'});
             }
         }
+        cart.forEach(c => { const p = products.find(x => x.id === c.id); if(p) p.stock -= c.qty; });
+        cart = []; document.getElementById('customerSearchInput').value = '';
+        saveData(); renderCart(); renderProducts(); renderCustomers(); renderPOSProducts(); updateCustomerSelect();
+        alert("Venda registrada!");
     }
 
-    function viewHistory(id) {
-        const customer = customers.find(c => c.id === id);
+    // --- HISTÓRICO ---
+    function viewHist(id) {
+        const c = customers.find(x => x.id === id);
         const list = document.getElementById('historyList');
-        list.innerHTML = '';
-        
-        // Histórico reverso (mais recente primeiro)
-        const reversedHistory = [...customer.history].reverse();
-
-        if(reversedHistory.length === 0) {
-            list.innerHTML = '<li class="list-group-item">Sem movimentações.</li>';
-        } else {
-            reversedHistory.forEach(h => {
-                let color = h.value < 0 ? 'text-danger' : 'text-success';
-                // Se for 0, é neutro
-                if(h.value === 0) color = 'text-muted';
-
-                list.innerHTML += `
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <small class="text-muted">${h.date}</small><br>
-                            <strong>${h.type}</strong>
-                        </div>
-                        <span class="${color} fw-bold">R$ ${h.value.toFixed(2)}</span>
-                    </li>
-                `;
-            });
-        }
-        
-        var myModal = new bootstrap.Modal(document.getElementById('historyModal'));
-        myModal.show();
+        list.innerHTML = c.history.length === 0 ? "<p class='text-muted'>Vazio.</p>" : 
+            c.history.slice().reverse().map(h => `
+                <div class="hist-item ${h.value < 0 ? 'hist-buy' : 'hist-pay'} small">
+                    <div class="d-flex justify-content-between"><b>${h.date}</b><span class="${h.value < 0 ? 'text-danger' : 'text-success'}">R$ ${Math.abs(h.value).toFixed(2)}</span></div>
+                    <div>${h.type} (${h.method || 'N/A'})</div>
+                    <div class="text-muted">${h.items || ''}</div>
+                </div>`).join('');
+        new bootstrap.Modal(document.getElementById('historyModal')).show();
     }
 
-    function resetSystem() {
-        if(confirm("ATENÇÃO: Isso apagará todos os clientes, produtos e vendas. Continuar?")) {
-            localStorage.clear();
-            location.reload();
+    function payDebt(id) {
+        const c = customers.find(x => x.id === id);
+        const v = prompt(`Dívida: R$${Math.abs(c.balance).toFixed(2)}\nValor pago:`);
+        if(v) {
+            const n = parseFloat(v.replace(',','.'));
+            if(!isNaN(n)) {
+                c.balance += n;
+                c.history.push({ date: new Date().toLocaleString(), type: 'Pagamento de Dívida', value: n, method: 'Dinheiro/Pix' });
+                saveData(); renderCustomers();
+            }
         }
     }
 
-    // Iniciar
+    // --- QR E AUXILIARES ---
+    let scanner;
+    function startScanner(type) {
+        const container = type === 'manual' ? 'reader' : 'readerCart';
+        document.getElementById(container).style.display = 'block';
+        scanner = new Html5Qrcode(container);
+        scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => {
+            if(type === 'manual') document.getElementById('newClientName').value = txt;
+            else { const newC = addCustomer(txt); document.getElementById('customerSearchInput').value = newC.name; updateCustomerSelect(); document.getElementById('saleCustomer').value = newC.id; }
+            scanner.stop(); document.getElementById(container).style.display = 'none';
+        }).catch(() => alert("Câmera bloqueada."));
+    }
+
+    function saveConfigs() { config.cardFee = parseFloat(document.getElementById('cardFee').value) || 0; saveData(); alert("Taxa salva!"); }
+    
+    function previewPix(input) {
+        const file = input.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                config.pixImg = e.target.result;
+                document.getElementById('pixDisplayImg').src = e.target.result;
+                document.getElementById('pixDisplayImg').style.display = 'block';
+                document.getElementById('pixModalImg').src = e.target.result;
+                document.getElementById('pixPlaceholder').style.display = 'none';
+                saveData();
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function updateCustomerSelect() {
+        const sel = document.getElementById('saleCustomer');
+        const sorted = [...customers].sort((a,b) => a.name.localeCompare(b.name));
+        sel.innerHTML = '<option value="">Selecionar Cliente...</option>' + sorted.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    }
+
+    function importCustomers(input) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+            const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+            json.forEach(row => { const name = row['Nome'] || row['nome']; if(name) customers.push({id: Date.now()+Math.random(), name, phone: row['Telefone']||'', balance: 0, history: []}); });
+            saveData(); renderCustomers(); updateCustomerSelect(); alert("Importado!");
+        };
+        reader.readAsArrayBuffer(input.files[0]);
+    }
+
+    function importProducts(input) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+            const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+            json.forEach(row => { const name = row['Nome'] || row['nome']; const price = parseFloat(row['Preço'] || row['preco'] || 0); if(name) products.push({id: Date.now()+Math.random(), name, price, stock: parseInt(row['Estoque']||0)}); });
+            saveData(); renderProducts(); renderPOSProducts(); alert("Importado!");
+        };
+        reader.readAsArrayBuffer(input.files[0]);
+    }
+
+    function resetSystem() { if(confirm("Apagar tudo?")) { localStorage.clear(); location.reload(); } }
     init();
-
 </script>
 </body>
 </html>
