@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conta Fiada Digital</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    
+    <style>
+        body { background-color: #f4f6f9; }
+        .card-summary { border: none; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .btn-custom { border-radius: 10px; padding: 10px 20px; font-weight: bold; }
+        .text-debt { color: #dc3545; font-weight: bold; } /* Vermelho para dívida */
+        .text-credit { color: #198754; font-weight: bold; } /* Verde para crédito */
+        .nav-pills .nav-link.active { background-color: #0d6efd; }
+        .product-card { cursor: pointer; transition: 0.2s; }
+        .product-card:hover { transform: translateY(-3px); border-color: #0d6efd; }
+    </style>
+</head>
+<body>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="bi bi-shop"></i> Conta Fiada Digital</h3>
+        <button onclick="resetSystem()" class="btn btn-sm btn-outline-danger">Zerar Sistema</button>
+    </div>
+
+    <ul class="nav nav-pills mb-4 justify-content-center" id="pills-tab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="pills-venda-tab" data-bs-toggle="pill" data-bs-target="#pills-venda" type="button">🛒 Nova Venda</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="pills-clientes-tab" data-bs-toggle="pill" data-bs-target="#pills-clientes" type="button">👥 Clientes / Fiado</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="pills-estoque-tab" data-bs-toggle="pill" data-bs-target="#pills-estoque" type="button">📦 Estoque</button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="pills-tabContent">
+        
+        <div class="tab-pane fade show active" id="pills-venda">
+            <div class="row">
+                <div class="col-md-7 mb-3">
+                    <div class="card card-summary p-3">
+                        <h5>Selecione os Produtos</h5>
+                        <input type="text" id="searchProduct" class="form-control mb-3" placeholder="Buscar produto..." onkeyup="renderPOSProducts()">
+                        <div class="row g-2" id="posProductList">
+                            </div>
+                    </div>
+                </div>
+
+                <div class="col-md-5">
+                    <div class="card card-summary p-3 bg-white">
+                        <h5 class="d-flex justify-content-between">
+                            Carrinho <span class="badge bg-primary" id="cartCount">0</span>
+                        </h5>
+                        <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                            <table class="table table-sm">
+                                <tbody id="cartTableBody">
+                                    </tbody>
+                            </table>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between fs-4 fw-bold">
+                            <span>Total:</span>
+                            <span id="cartTotal">R$ 0,00</span>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <label class="form-label">Cliente</label>
+                            <select class="form-select mb-2" id="saleCustomer">
+                                </select>
+                            
+                            <label class="form-label">Forma de Pagamento</label>
+                            <select class="form-select mb-3" id="paymentMethod" onchange="toggleCashInput()">
+                                <option value="Dinheiro">Dinheiro</option>
+                                <option value="Pix">Pix</option>
+                                <option value="Cartão">Cartão</option>
+                                <option value="Fiado">Fiado (Pagar Depois)</option>
+                            </select>
+
+                            <div id="cashInputDiv" class="mb-3">
+                                <label>Valor Recebido (R$)</label>
+                                <input type="number" class="form-control" id="cashReceived" placeholder="0.00">
+                                <small class="text-muted">Se sobrar troco e não devolver, vira crédito.</small>
+                            </div>
+
+                            <button onclick="finalizeSale()" class="btn btn-success w-100 btn-custom">Finalizar Venda</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="pills-clientes">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <div class="card card-summary p-3">
+                        <h5>Novo Cliente</h5>
+                        <input type="text" id="newClientName" class="form-control mb-2" placeholder="Nome do Cliente">
+                        <input type="text" id="newClientPhone" class="form-control mb-2" placeholder="Telefone (Opcional)">
+                        <button onclick="addCustomer()" class="btn btn-primary w-100">Cadastrar</button>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="card card-summary p-3">
+                        <h5>Lista de Clientes e Saldos</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Telefone</th>
+                                        <th>Saldo (R$)</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="customerTableBody">
+                                    </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="pills-estoque">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <div class="card card-summary p-3">
+                        <h5>Cadastrar Produto</h5>
+                        <input type="text" id="prodName" class="form-control mb-2" placeholder="Nome do Produto">
+                        <input type="number" id="prodPrice" class="form-control mb-2" placeholder="Preço (R$)">
+                        <input type="number" id="prodStock" class="form-control mb-2" placeholder="Qtd. Estoque">
+                        <button onclick="addProduct()" class="btn btn-primary w-100">Salvar Produto</button>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="card card-summary p-3">
+                        <h5>Estoque Atual</h5>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Produto</th>
+                                    <th>Preço</th>
+                                    <th>Qtd.</th>
+                                    <th>Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventoryTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="modal fade" id="historyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Histórico de Movimentações</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="list-group" id="historyList"></ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // --- DADOS INICIAIS (Banco de dados simulado) ---
+    let products = JSON.parse(localStorage.getItem('cf_products')) || [];
+    let customers = JSON.parse(localStorage.getItem('cf_customers')) || [];
+    let transactions = JSON.parse(localStorage.getItem('cf_transactions')) || [];
+    let cart = [];
+
+    // --- FUNÇÕES DE INICIALIZAÇÃO ---
+    function init() {
+        renderProducts();
+        renderCustomers();
+        renderPOSProducts();
+        updateCustomerSelect();
+    }
+
+    function saveData() {
+        localStorage.setItem('cf_products', JSON.stringify(products));
+        localStorage.setItem('cf_customers', JSON.stringify(customers));
+        localStorage.setItem('cf_transactions', JSON.stringify(transactions));
+    }
+
+    // --- GESTÃO DE ESTOQUE ---
+    function addProduct() {
+        const name = document.getElementById('prodName').value;
+        const price = parseFloat(document.getElementById('prodPrice').value);
+        const stock = parseInt(document.getElementById('prodStock').value);
+
+        if (!name || isNaN(price) || isNaN(stock)) return alert("Preencha todos os campos corretamente.");
+
+        const newProd = { id: Date.now(), name, price, stock };
+        products.push(newProd);
+        saveData();
+        renderProducts();
+        renderPOSProducts();
+        
+        // Limpar campos
+        document.getElementById('prodName').value = '';
+        document.getElementById('prodPrice').value = '';
+        document.getElementById('prodStock').value = '';
+    }
+
+    function renderProducts() {
+        const tbody = document.getElementById('inventoryTableBody');
+        tbody.innerHTML = '';
+        products.forEach((p, index) => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${p.name}</td>
+                    <td>R$ ${p.price.toFixed(2)}</td>
+                    <td>
+                        <span class="badge ${p.stock < 5 ? 'bg-danger' : 'bg-success'}">${p.stock}</span>
+                    </td>
+                    <td><button class="btn btn-sm btn-outline-danger" onclick="deleteProduct(${index})"><i class="bi bi-trash"></i></button></td>
+                </tr>
+            `;
+        });
+    }
+
+    function deleteProduct(index) {
+        if(confirm('Tem certeza?')) {
+            products.splice(index, 1);
+            saveData();
+            renderProducts();
+            renderPOSProducts();
+        }
+    }
+
+    // --- GESTÃO DE CLIENTES ---
+    function addCustomer() {
+        const name = document.getElementById('newClientName').value;
+        const phone = document.getElementById('newClientPhone').value;
+
+        if (!name) return alert("Nome é obrigatório.");
+
+        // Balance: Negativo = Deve, Positivo = Crédito
+        const newClient = { id: Date.now(), name, phone, balance: 0.0, history: [] };
+        customers.push(newClient);
+        saveData();
+        renderCustomers();
+        updateCustomerSelect();
+        
+        document.getElementById('newClientName').value = '';
+        document.getElementById('newClientPhone').value = '';
+        alert("Cliente cadastrado!");
+    }
+
+    function renderCustomers() {
+        const tbody = document.getElementById('customerTableBody');
+        tbody.innerHTML = '';
+        customers.forEach(c => {
+            let balanceClass = c.balance >= 0 ? 'text-credit' : 'text-debt';
+            let balanceText = c.balance >= 0 ? `Crédito: R$ ${c.balance.toFixed(2)}` : `Deve: R$ ${Math.abs(c.balance).toFixed(2)}`;
+            
+            tbody.innerHTML += `
+                <tr>
+                    <td>${c.name}</td>
+                    <td>${c.phone}</td>
+                    <td class="${balanceClass}">${balanceText}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="viewHistory(${c.id})"><i class="bi bi-clock-history"></i></button>
+                        <button class="btn btn-sm btn-success" onclick="payDebtPrompt(${c.id})">Pagar</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    function updateCustomerSelect() {
+        const select = document.getElementById('saleCustomer');
+        select.innerHTML = '<option value="">Selecione um cliente...</option>';
+        customers.forEach(c => {
+            select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+        });
+    }
+
+    // --- SISTEMA DE VENDAS (POS) ---
+    function renderPOSProducts() {
+        const search = document.getElementById('searchProduct').value.toLowerCase();
+        const container = document.getElementById('posProductList');
+        container.innerHTML = '';
+
+        products.filter(p => p.name.toLowerCase().includes(search)).forEach(p => {
+            let stockClass = p.stock === 0 ? 'border-danger opacity-50' : 'border-primary';
+            let clickAction = p.stock > 0 ? `addToCart(${p.id})` : "alert('Produto sem estoque!')";
+            
+            container.innerHTML += `
+                <div class="col-6 col-md-4">
+                    <div class="card product-card p-2 text-center ${stockClass}" onclick="${clickAction}">
+                        <div class="fw-bold">${p.name}</div>
+                        <div class="text-success">R$ ${p.price.toFixed(2)}</div>
+                        <small class="text-muted">Est: ${p.stock}</small>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    function addToCart(id) {
+        const product = products.find(p => p.id === id);
+        
+        // Verifica se já está no carrinho
+        const existingItem = cart.find(item => item.id === id);
+        if (existingItem) {
+            if (existingItem.qty < product.stock) {
+                existingItem.qty++;
+            } else {
+                alert("Estoque máximo atingido para este item.");
+            }
+        } else {
+            cart.push({ ...product, qty: 1 });
+        }
+        renderCart();
+    }
+
+    function renderCart() {
+        const tbody = document.getElementById('cartTableBody');
+        tbody.innerHTML = '';
+        let total = 0;
+
+        cart.forEach((item, index) => {
+            const itemTotal = item.price * item.qty;
+            total += itemTotal;
+            tbody.innerHTML += `
+                <tr>
+                    <td>${item.name}</td>
+                    <td>${item.qty}x</td>
+                    <td>R$ ${itemTotal.toFixed(2)}</td>
+                    <td><i class="bi bi-x-circle text-danger" style="cursor:pointer" onclick="removeFromCart(${index})"></i></td>
+                </tr>
+            `;
+        });
+
+        document.getElementById('cartTotal').innerText = `R$ ${total.toFixed(2)}`;
+        document.getElementById('cartCount').innerText = cart.length;
+    }
+
+    function removeFromCart(index) {
+        cart.splice(index, 1);
+        renderCart();
+    }
+
+    function toggleCashInput() {
+        const method = document.getElementById('paymentMethod').value;
+        const div = document.getElementById('cashInputDiv');
+        // Mostra campo de valor recebido se for Dinheiro
+        if (method === 'Dinheiro') {
+            div.style.display = 'block';
+        } else {
+            div.style.display = 'none';
+        }
+    }
+
+    function finalizeSale() {
+        if (cart.length === 0) return alert("Carrinho vazio!");
+        const customerId = document.getElementById('saleCustomer').value;
+        if (!customerId) return alert("Selecione um cliente.");
+
+        const method = document.getElementById('paymentMethod').value;
+        const customer = customers.find(c => c.id == customerId);
+        
+        // Calcular totais
+        const totalSale = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+        let cashReceived = 0;
+        let change = 0; // Troco ou crédito gerado
+
+        // Lógica de Pagamento
+        if (method === 'Fiado') {
+            // Se for fiado, o valor total é subtraído do saldo do cliente (ficando negativo)
+            customer.balance -= totalSale;
+            customer.history.push({ date: new Date().toLocaleString(), type: 'Compra Fiado', value: -totalSale });
+        } else if (method === 'Dinheiro') {
+            cashReceived = parseFloat(document.getElementById('cashReceived').value) || 0;
+            if (cashReceived < totalSale) return alert("Valor recebido menor que o total!");
+            
+            // Se o valor recebido for maior, a diferença (troco) vira crédito SE não for devolvida.
+            // Aqui assumimos que se o operador digitou, entrou no sistema.
+            // Para simplificar: Pagamento em dinheiro não altera saldo DEVEDOR, a menos que haja troco guardado como crédito.
+            
+            const diff = cashReceived - totalSale;
+            if (diff > 0) {
+                 if(confirm(`Gerar troco de R$ ${diff.toFixed(2)} como crédito para o cliente?`)) {
+                     customer.balance += diff;
+                     customer.history.push({ date: new Date().toLocaleString(), type: 'Troco/Crédito', value: diff });
+                 }
+            }
+            customer.history.push({ date: new Date().toLocaleString(), type: 'Compra Paga (Dinheiro)', value: 0 }); // Venda neutra no saldo
+        } else {
+            // Cartão ou Pix (Considera pago, não muda saldo devedor)
+            customer.history.push({ date: new Date().toLocaleString(), type: `Compra Paga (${method})`, value: 0 });
+        }
+
+        // Atualizar Estoque
+        cart.forEach(cartItem => {
+            const product = products.find(p => p.id === cartItem.id);
+            if (product) {
+                product.stock -= cartItem.qty;
+            }
+        });
+
+        // Limpar e Salvar
+        cart = [];
+        saveData();
+        renderCart();
+        renderProducts(); // Atualiza visual do estoque
+        renderCustomers(); // Atualiza saldo visual
+        renderPOSProducts(); // Atualiza lista de venda
+        
+        // Reset inputs
+        document.getElementById('cashReceived').value = '';
+        
+        alert("Venda realizada com sucesso!");
+    }
+
+    // --- PAGAMENTO DE DÍVIDAS ---
+    function payDebtPrompt(id) {
+        const customer = customers.find(c => c.id === id);
+        if (customer.balance >= 0) return alert("Este cliente não possui dívidas.");
+
+        let amount = prompt(`O cliente deve R$ ${Math.abs(customer.balance).toFixed(2)}. Quanto ele vai pagar?`);
+        if (amount) {
+            amount = parseFloat(amount.replace(',', '.'));
+            if (!isNaN(amount)) {
+                customer.balance += amount; // Pagar dívida aumenta o saldo (de negativo para zero/positivo)
+                customer.history.push({ date: new Date().toLocaleString(), type: 'Abatimento de Dívida', value: amount });
+                saveData();
+                renderCustomers();
+                alert("Pagamento registrado!");
+            }
+        }
+    }
+
+    function viewHistory(id) {
+        const customer = customers.find(c => c.id === id);
+        const list = document.getElementById('historyList');
+        list.innerHTML = '';
+        
+        // Histórico reverso (mais recente primeiro)
+        const reversedHistory = [...customer.history].reverse();
+
+        if(reversedHistory.length === 0) {
+            list.innerHTML = '<li class="list-group-item">Sem movimentações.</li>';
+        } else {
+            reversedHistory.forEach(h => {
+                let color = h.value < 0 ? 'text-danger' : 'text-success';
+                // Se for 0, é neutro
+                if(h.value === 0) color = 'text-muted';
+
+                list.innerHTML += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted">${h.date}</small><br>
+                            <strong>${h.type}</strong>
+                        </div>
+                        <span class="${color} fw-bold">R$ ${h.value.toFixed(2)}</span>
+                    </li>
+                `;
+            });
+        }
+        
+        var myModal = new bootstrap.Modal(document.getElementById('historyModal'));
+        myModal.show();
+    }
+
+    function resetSystem() {
+        if(confirm("ATENÇÃO: Isso apagará todos os clientes, produtos e vendas. Continuar?")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
+
+    // Iniciar
+    init();
+
+</script>
+</body>
+</html>
